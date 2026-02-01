@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>自由空间路径损耗（FSPL）计算器</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header class="container">
+      <h1>自由空间路径损耗（FSPL）计算器</h1>
+      <p class="sub">
+        输入发射功率、频点（或频率范围）、距离，计算 FSPL 与接收功率。
+        默认发射/接收天线增益与其它损耗均为 0 dB（可选项可展开填写）。
+      </p>
+    </header>
+
+    <main class="container grid">
+      <section class="card">
+        <h2>输入</h2>
+
+        <div class="row">
+          <label>发射功率 Pt</label>
+          <div class="inline">
+            <input id="ptValue" type="number" step="any" value="20" />
+            <select id="ptUnit">
+              <option value="dBm" selected>dBm</option>
+              <option value="W">W</option>
+              <option value="mW">mW</option>
+            </select>
+          </div>
+          <div class="hint">示例：20 dBm = 0.1 W</div>
+        </div>
+
+        <div class="row">
+          <label>距离 d</label>
+          <div class="inline">
+            <input id="dValue" type="number" step="any" value="1" />
+            <select id="dUnit">
+              <option value="m">m</option>
+              <option value="km" selected>km</option>
+            </select>
+          </div>
+          <div class="hint">自由空间模型：视距无遮挡、无多径/地面反射等。</div>
+        </div>
+
+        <div class="row">
+          <label>频率</label>
+          <div class="tabs">
+            <button id="tabSingle" class="tab active" type="button">单频点</button>
+            <button id="tabRange" class="tab" type="button">频率范围</button>
+          </div>
+
+          <div id="singlePanel" class="panel">
+            <div class="inline">
+              <input id="fValue" type="number" step="any" value="2400" />
+              <select id="fUnit">
+                <option value="MHz" selected>MHz</option>
+                <option value="GHz">GHz</option>
+                <option value="kHz">kHz</option>
+                <option value="Hz">Hz</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="rangePanel" class="panel hidden">
+            <div class="rangeGrid">
+              <div>
+                <div class="mini">起始</div>
+                <div class="inline">
+                  <input id="fStart" type="number" step="any" value="800" />
+                  <select id="fRangeUnit">
+                    <option value="MHz" selected>MHz</option>
+                    <option value="GHz">GHz</option>
+                    <option value="kHz">kHz</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div class="mini">终止</div>
+                <div class="inline">
+                  <input id="fStop" type="number" step="any" value="2600" />
+                  <span class="ghostUnit" id="fStopUnit">MHz</span>
+                </div>
+              </div>
+              <div>
+                <div class="mini">步进</div>
+                <div class="inline">
+                  <input id="fStep" type="number" step="any" value="50" />
+                  <span class="ghostUnit" id="fStepUnit">MHz</span>
+                </div>
+              </div>
+            </div>
+            <div class="hint">范围模式会输出曲线：频率 → 接收功率（dBm）。</div>
+          </div>
+        </div>
+
+        <details class="row">
+          <summary>可选参数（默认 0）</summary>
+          <div class="optGrid">
+            <div>
+              <label>发射天线增益 Gt (dBi)</label>
+              <input id="gt" type="number" step="any" value="0" />
+            </div>
+            <div>
+              <label>接收天线增益 Gr (dBi)</label>
+              <input id="gr" type="number" step="any" value="0" />
+            </div>
+            <div>
+              <label>其它损耗 L (dB)</label>
+              <input id="loss" type="number" step="any" value="0" />
+              <div class="hint">例如：馈线损耗、连接器损耗、极化不匹配等。</div>
+            </div>
+          </div>
+        </details>
+
+        <div class="row actions">
+          <button id="btnCalc" type="button" class="primary">计算</button>
+          <button id="btnReset" type="button">重置</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>结果</h2>
+
+        <div class="kv">
+          <div class="k">发射功率 Pt</div>
+          <div class="v" id="outPt">-</div>
+
+          <div class="k">距离 d</div>
+          <div class="v" id="outD">-</div>
+
+          <div class="k">频率</div>
+          <div class="v" id="outF">-</div>
+
+          <div class="k">FSPL（dB）</div>
+          <div class="v" id="outFspl">-</div>
+
+          <div class="k">接收功率 Pr（dBm）</div>
+          <div class="v big" id="outPr">-</div>
+        </div>
+
+        <div id="rangeSummary" class="note hidden"></div>
+
+        <div class="chartWrap">
+          <canvas id="chart"></canvas>
+        </div>
+
+        <div class="note">
+          <strong>公式：</strong>
+          <div class="mono">FSPL(dB) = 32.44 + 20·log10(d_km) + 20·log10(f_MHz)</div>
+          <div class="mono">Pr(dBm) = Pt(dBm) + Gt(dBi) + Gr(dBi) − FSPL(dB) − L(dB)</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="container footer">
+      <div class="muted">
+        提示：FSPL 只适用于自由空间近似（无遮挡、无地面反射/多径）。如需加入雨衰、地形、Fresnel 区、阴影衰落等，可在此基础上扩展。
+      </div>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
